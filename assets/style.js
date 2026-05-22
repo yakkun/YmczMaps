@@ -1,31 +1,52 @@
 // MapLibre style emulating the "Yama-to-Kogen Chizu" (Shobunsha) palette
-// on top of GSI experimental vector tiles.
+// on top of GSI experimental vector tiles + GSI DEM with hypsometric tint.
 //
-// Source: https://github.com/gsi-cyberjapan/gsivectortile-mapbox-gl-js
-// Tiles:  https://cyberjapandata.gsi.go.jp/xyz/experimental_bvmap/{z}/{x}/{y}.pbf
+// Vector tiles: https://cyberjapandata.gsi.go.jp/xyz/experimental_bvmap/{z}/{x}/{y}.pbf
+// Elevation:    https://cyberjapandata.gsi.go.jp/xyz/dem_png/{z}/{x}/{y}.png
+// Elevation decoding (GSI 24-bit):
+//   elev_m = (R*65536 + G*256 + B) / 100
+//   → redFactor=655.36, greenFactor=2.56, blueFactor=0.01, baseShift=0
+//   (Negative elevations aren't representable as unsigned, but coastal water
+//   is masked by the waterarea vector polygons.)
 
 const palette = {
   paper: "#F4EAD3",
-  paperShade: "#EADFC2",
   water: "#9FC1E0",
   waterDark: "#6B95BD",
-  forest: "#D7E1B7",
-  forestDark: "#B7C68C",
-  rice: "#E7E6BE",
   building: "#D8C7A1",
   buildingEdge: "#A88B5C",
-  road: "#7E654A",
   roadCasing: "#B89E78",
   highway: "#C77848",
   highwayCasing: "#8B4A22",
   trail: "#C8362A",
-  contour: "#A88661",
-  contourIndex: "#7A552E",
-  ink: "#4A3A22",
+  contour: "#9A7A55",
+  contourIndex: "#6F4A24",
+  ink: "#3D2E18",
   inkSoft: "#6E5A36",
-  inkHalo: "#F6EFDD",
+  inkHalo: "#FBF3DE",
   boundary: "#9A8A7B",
 };
+
+// "Yama-to-Kogen Chizu" hypsometric ramp (meters → fill color).
+// Tuned to evoke the Shobunsha palette: pale green lowlands, gold mid-slopes,
+// warm brown alpine zone, light snow tone above ~3000m.
+const elevationRamp = [
+  -50,   "#C6D3A8",
+  0,     "#D9E4B6",
+  100,   "#CFDDA0",
+  300,   "#D9D996",
+  600,   "#DDCE87",
+  900,   "#D7BE76",
+  1200,  "#CFA869",
+  1500,  "#BE8D5A",
+  1800,  "#A77450",
+  2200,  "#8E5A3F",
+  2600,  "#74452F",
+  2900,  "#8E6D52",
+  3100,  "#C5B59A",
+  3300,  "#E8DEC4",
+  3800,  "#F4ECD6",
+];
 
 export const styleSpec = {
   version: 8,
@@ -42,6 +63,22 @@ export const styleSpec = {
       attribution:
         '<a href="https://maps.gsi.go.jp/vector/" target="_blank" rel="noopener">地理院地図Vector</a>',
     },
+    gsiDem: {
+      type: "raster-dem",
+      tiles: [
+        "https://cyberjapandata.gsi.go.jp/xyz/dem_png/{z}/{x}/{y}.png",
+      ],
+      tileSize: 256,
+      minzoom: 1,
+      maxzoom: 14,
+      encoding: "custom",
+      redFactor: 655.36,
+      greenFactor: 2.56,
+      blueFactor: 0.01,
+      baseShift: 0,
+      attribution:
+        '<a href="https://maps.gsi.go.jp/development/ichiran.html" target="_blank" rel="noopener">国土地理院 標高タイル</a>',
+    },
   },
   layers: [
     {
@@ -50,22 +87,53 @@ export const styleSpec = {
       paint: { "background-color": palette.paper },
     },
 
-    // --- Areas ---------------------------------------------------------------
+    // --- Hypsometric tint (elevation → color) -------------------------------
+    // Renders a "Yama-to-Kogen Chizu"-style elevation band beneath everything
+    // except water. Driven directly by GSI DEM via MapLibre's color-relief.
+    {
+      id: "elevation-tint",
+      type: "color-relief",
+      source: "gsiDem",
+      paint: {
+        "color-relief-opacity": 0.92,
+        "color-relief-color": [
+          "interpolate",
+          ["linear"],
+          ["elevation"],
+          ...elevationRamp,
+        ],
+      },
+    },
+    // Subtle sepia hillshade on top of the tint for relief structure.
+    {
+      id: "hillshade",
+      type: "hillshade",
+      source: "gsiDem",
+      paint: {
+        "hillshade-exaggeration": 0.32,
+        "hillshade-shadow-color": "#6e4a26",
+        "hillshade-highlight-color": "#fbf2d8",
+        "hillshade-accent-color": "#a98a5c",
+        "hillshade-illumination-direction": 315,
+      },
+    },
+
+    // --- Landform overlays (wetland/gravel only; greens come from tint) ----
     {
       id: "landform-area",
       type: "fill",
       source: "gsi",
       "source-layer": "landforma",
+      filter: ["in", ["get", "ftCode"], ["literal", [7401, 7403]]],
       paint: {
         "fill-color": [
           "match",
           ["get", "ftCode"],
-          7401, "#C8D5B0", // 湿地
-          7402, "#D7E1B7",
-          7403, "#E2D6B0", // 砂礫地
-          palette.forest,
+          7401, "#B8C9A0", // 湿地
+          7403, "#E0D2A8", // 砂礫地
+          "#D7E1B7",
         ],
-        "fill-opacity": 0.55,
+        "fill-opacity": 0.5,
       },
     },
     {
@@ -174,7 +242,8 @@ export const styleSpec = {
       paint: {
         "text-color": palette.contourIndex,
         "text-halo-color": palette.inkHalo,
-        "text-halo-width": 1.2,
+        "text-halo-width": 1.5,
+        "text-halo-blur": 0.3,
       },
     },
 
