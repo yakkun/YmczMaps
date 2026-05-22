@@ -63,6 +63,12 @@ export const styleSpec = {
       attribution:
         '<a href="https://maps.gsi.go.jp/vector/" target="_blank" rel="noopener">地理院地図Vector</a>',
     },
+    // Empty GeoJSON source — populated dynamically at z≈12–14 by pulling
+    // z=14 vector tiles and decoding their `contour` layer (see app.js).
+    gsiContourDetail: {
+      type: "geojson",
+      data: { type: "FeatureCollection", features: [] },
+    },
     gsiDem: {
       type: "raster-dem",
       tiles: [
@@ -185,24 +191,88 @@ export const styleSpec = {
     //   z=11–13 features have NO altiFlag at all — the server emits a single
     //     pre-thinned line set per tile, so any altiFlag filter blanks it out.
     //   z=14+ features carry altiFlag again with the full main/aux split.
-    // We therefore draw a catch-all contour line for z=10–13 and only switch
-    // to the altiFlag-discriminated styling at z≥14.
+    // We therefore draw a catch-all contour line for z=10–12 and from z=12+
+    // overlay z=14 detail fetched on demand into the GeoJSON source above.
     {
       id: "contour-low",
       type: "line",
       source: "gsi",
       "source-layer": "contour",
       minzoom: 10,
-      maxzoom: 14,
+      maxzoom: 12,
       paint: {
         "line-color": palette.contour,
         "line-opacity": 0.75,
         "line-width": [
           "interpolate", ["linear"], ["zoom"],
           10, 0.5,
-          12, 0.7,
-          13.99, 1.0,
+          12, 0.8,
         ],
+      },
+    },
+    // --- z=12–14 detail contours (z=14 tiles fetched on demand) -------------
+    {
+      id: "contour-detail-aux",
+      type: "line",
+      source: "gsiContourDetail",
+      minzoom: 12,
+      maxzoom: 14,
+      filter: ["==", ["get", "altiFlag"], 2],
+      paint: {
+        "line-color": palette.contour,
+        "line-opacity": 0.45,
+        "line-width": ["interpolate", ["linear"], ["zoom"], 12, 0.25, 14, 0.45],
+      },
+    },
+    {
+      id: "contour-detail-main",
+      type: "line",
+      source: "gsiContourDetail",
+      minzoom: 12,
+      maxzoom: 14,
+      filter: ["==", ["get", "altiFlag"], 1],
+      paint: {
+        "line-color": palette.contour,
+        "line-opacity": 0.7,
+        "line-width": ["interpolate", ["linear"], ["zoom"], 12, 0.4, 14, 0.7],
+      },
+    },
+    {
+      id: "contour-detail-index",
+      type: "line",
+      source: "gsiContourDetail",
+      minzoom: 12,
+      maxzoom: 14,
+      filter: ["==", ["get", "altiFlag"], 0],
+      paint: {
+        "line-color": palette.contourIndex,
+        "line-opacity": 0.9,
+        "line-width": ["interpolate", ["linear"], ["zoom"], 12, 0.7, 14, 1.2],
+      },
+    },
+    {
+      id: "contour-detail-index-label",
+      type: "symbol",
+      source: "gsiContourDetail",
+      minzoom: 13,
+      maxzoom: 14,
+      filter: [
+        "all",
+        ["has", "alti"],
+        ["==", ["get", "altiFlag"], 0],
+      ],
+      layout: {
+        "symbol-placement": "line",
+        "text-field": ["concat", ["to-string", ["get", "alti"]], " m"],
+        "text-font": ["Noto Sans Regular"],
+        "text-size": 9.5,
+        "symbol-spacing": 380,
+      },
+      paint: {
+        "text-color": palette.contourIndex,
+        "text-halo-color": palette.inkHalo,
+        "text-halo-width": 1.4,
+        "text-halo-blur": 0.3,
       },
     },
     {

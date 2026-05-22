@@ -1,4 +1,5 @@
 import { styleSpec } from "./style.js";
+import { wireDetailContours } from "./contour-detail.js";
 
 const DEFAULT_VIEW = {
   // Kamikochi / Hotaka, a classic Yama-to-Kogen Chizu subject.
@@ -105,6 +106,8 @@ map.on("load", () => {
   const c = map.getCenter();
   coordsEl.textContent = fmtCoord(c.lng, c.lat, map.getZoom());
 });
+
+wireDetailContours(map);
 
 // Surface tile/source errors during development without spamming the console.
 map.on("error", (e) => {
