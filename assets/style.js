@@ -180,18 +180,42 @@ export const styleSpec = {
     },
 
     // --- Contours ------------------------------------------------------------
-    // altiFlag: 0=計曲線(index), 1=主曲線, 2=補助曲線
+    // GSI experimental_bvmap contour tiling quirk:
+    //   z=10 features carry altiFlag (0/1/2 = index/main/auxiliary).
+    //   z=11–13 features have NO altiFlag at all — the server emits a single
+    //     pre-thinned line set per tile, so any altiFlag filter blanks it out.
+    //   z=14+ features carry altiFlag again with the full main/aux split.
+    // We therefore draw a catch-all contour line for z=10–13 and only switch
+    // to the altiFlag-discriminated styling at z≥14.
+    {
+      id: "contour-low",
+      type: "line",
+      source: "gsi",
+      "source-layer": "contour",
+      minzoom: 10,
+      maxzoom: 14,
+      paint: {
+        "line-color": palette.contour,
+        "line-opacity": 0.75,
+        "line-width": [
+          "interpolate", ["linear"], ["zoom"],
+          10, 0.5,
+          12, 0.7,
+          13.99, 1.0,
+        ],
+      },
+    },
     {
       id: "contour-aux",
       type: "line",
       source: "gsi",
       "source-layer": "contour",
-      minzoom: 12,
+      minzoom: 14,
       filter: ["==", ["get", "altiFlag"], 2],
       paint: {
         "line-color": palette.contour,
         "line-opacity": 0.45,
-        "line-width": ["interpolate", ["linear"], ["zoom"], 12, 0.3, 16, 0.7],
+        "line-width": ["interpolate", ["linear"], ["zoom"], 14, 0.4, 17, 0.8],
       },
     },
     {
@@ -199,12 +223,12 @@ export const styleSpec = {
       type: "line",
       source: "gsi",
       "source-layer": "contour",
-      minzoom: 11,
+      minzoom: 14,
       filter: ["==", ["get", "altiFlag"], 1],
       paint: {
         "line-color": palette.contour,
-        "line-opacity": 0.7,
-        "line-width": ["interpolate", ["linear"], ["zoom"], 11, 0.4, 16, 1.1],
+        "line-opacity": 0.75,
+        "line-width": ["interpolate", ["linear"], ["zoom"], 14, 0.6, 17, 1.2],
       },
     },
     {
@@ -212,12 +236,12 @@ export const styleSpec = {
       type: "line",
       source: "gsi",
       "source-layer": "contour",
-      minzoom: 10,
+      minzoom: 14,
       filter: ["==", ["get", "altiFlag"], 0],
       paint: {
         "line-color": palette.contourIndex,
-        "line-opacity": 0.9,
-        "line-width": ["interpolate", ["linear"], ["zoom"], 10, 0.6, 16, 1.7],
+        "line-opacity": 0.95,
+        "line-width": ["interpolate", ["linear"], ["zoom"], 14, 1.0, 17, 1.9],
       },
     },
     {
@@ -225,16 +249,16 @@ export const styleSpec = {
       type: "symbol",
       source: "gsi",
       "source-layer": "contour",
-      minzoom: 13,
-      filter: ["==", ["get", "altiFlag"], 0],
+      minzoom: 14,
+      filter: [
+        "all",
+        ["has", "alti"],
+        // At z14+ prefer the index lines (altiFlag=0) so labels aren't dense.
+        ["==", ["get", "altiFlag"], 0],
+      ],
       layout: {
         "symbol-placement": "line",
-        "text-field": [
-          "case",
-          ["has", "alti"],
-          ["concat", ["to-string", ["get", "alti"]], " m"],
-          "",
-        ],
+        "text-field": ["concat", ["to-string", ["get", "alti"]], " m"],
         "text-font": ["Noto Sans Regular"],
         "text-size": 10,
         "symbol-spacing": 400,
