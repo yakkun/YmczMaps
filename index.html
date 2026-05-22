@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1" />
+    <title>YmczMaps — 山と高原地図風ビューア</title>
+    <meta
+      name="description"
+      content="国土地理院ベクトルタイルを「山と高原地図」風の配色で表示するPC向けフルスクリーン地図ビューア"
+    />
+    <link
+      rel="stylesheet"
+      href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css"
+      crossorigin="anonymous"
+    />
+    <link rel="stylesheet" href="./assets/app.css" />
+  </head>
+  <body>
+    <div id="map" role="application" aria-label="地図"></div>
+
+    <div id="overlay" class="overlay">
+      <div class="brand">
+        <span class="brand-mark">⛰</span>
+        <span class="brand-name">YmczMaps</span>
+      </div>
+      <div class="coords" id="coords" aria-live="off">--</div>
+    </div>
+
+    <script
+      src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"
+      crossorigin="anonymous"
+    ></script>
+    <script type="module" src="./assets/app.js"></script>
+  </body>
+</html>
